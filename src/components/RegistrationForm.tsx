@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -28,6 +28,9 @@ export interface MemberData {
   timestamp: string;
 }
 
+// تخزين مؤقت للبيانات
+const TEMP_STORAGE_KEY = 'tempFormData';
+
 const RegistrationForm = () => {
   const { toast } = useToast();
   const [formData, setFormData] = useState({
@@ -39,6 +42,34 @@ const RegistrationForm = () => {
     customPosition: ''
   });
   const [loading, setLoading] = useState(false);
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
+  const [lastSaved, setLastSaved] = useState<string | null>(null);
+
+  // استرجاع البيانات المؤقتة عند تحميل النموذج
+  useEffect(() => {
+    const savedData = localStorage.getItem(TEMP_STORAGE_KEY);
+    if (savedData) {
+      try {
+        const parsedData = JSON.parse(savedData);
+        setFormData(parsedData);
+      } catch (e) {
+        console.error("Error parsing saved form data:", e);
+      }
+    }
+  }, []);
+
+  // حفظ البيانات تلقائيًا كلما تغيرت
+  useEffect(() => {
+    if (autoSaveEnabled && (formData.name || formData.nationalId || formData.phone)) {
+      const saveTimeout = setTimeout(() => {
+        localStorage.setItem(TEMP_STORAGE_KEY, JSON.stringify(formData));
+        const now = new Date();
+        setLastSaved(now.toLocaleTimeString('ar-EG'));
+      }, 500);
+      
+      return () => clearTimeout(saveTimeout);
+    }
+  }, [formData, autoSaveEnabled]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -93,6 +124,19 @@ const RegistrationForm = () => {
       const existingDataString = localStorage.getItem('membersData');
       const existingData: MemberData[] = existingDataString ? JSON.parse(existingDataString) : [];
       
+      // التحقق من وجود الرقم القومي مسبقًا
+      const isDuplicate = existingData.some(item => item.nationalId === formData.nationalId);
+      
+      if (isDuplicate) {
+        toast({
+          title: "تنبيه",
+          description: "هذا الرقم القومي مسجل مسبقًا في النظام",
+          variant: "destructive"
+        });
+        setLoading(false);
+        return;
+      }
+      
       // إنشاء معرف جديد
       const newId = existingData.length > 0 ? Math.max(...existingData.map(item => item.id)) + 1 : 1;
       
@@ -113,6 +157,9 @@ const RegistrationForm = () => {
       // حفظ البيانات في localStorage
       localStorage.setItem('membersData', JSON.stringify(updatedData));
       
+      // حذف البيانات المؤقتة
+      localStorage.removeItem(TEMP_STORAGE_KEY);
+      
       // عرض رسالة نجاح
       toast({
         title: "تم التسجيل بنجاح!",
@@ -128,6 +175,7 @@ const RegistrationForm = () => {
         position: '',
         customPosition: ''
       });
+      setLastSaved(null);
     } catch (error) {
       console.error("خطأ في حفظ البيانات:", error);
       toast({
@@ -144,7 +192,14 @@ const RegistrationForm = () => {
     <Card className="w-full max-w-2xl mx-auto shadow-lg border-t-4 border-t-watan-blue">
       <CardHeader className="text-center">
         <CardTitle className="text-2xl">تسجيل بيانات الأعضاء</CardTitle>
-        <CardDescription>برجاء إدخال بيانات العضو الجديد</CardDescription>
+        <CardDescription>
+          البيانات تُحفظ تلقائيًا أثناء الكتابة
+          {lastSaved && 
+            <div className="text-xs text-muted-foreground mt-1">
+              آخر حفظ تلقائي: {lastSaved}
+            </div>
+          }
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6" dir="rtl">
@@ -235,6 +290,43 @@ const RegistrationForm = () => {
               />
             </div>
           )}
+
+          <div className="flex items-center justify-between text-sm mb-4">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="autoSave"
+                checked={autoSaveEnabled}
+                onChange={() => setAutoSaveEnabled(!autoSaveEnabled)}
+                className="rounded text-watan-blue"
+              />
+              <label htmlFor="autoSave" className="cursor-pointer text-muted-foreground">حفظ تلقائي</label>
+            </div>
+            {formData.name || formData.nationalId || formData.phone ? (
+              <button 
+                type="button"
+                onClick={() => {
+                  localStorage.removeItem(TEMP_STORAGE_KEY);
+                  setFormData({
+                    name: '',
+                    nationalId: '',
+                    phone: '',
+                    gender: '',
+                    position: '',
+                    customPosition: ''
+                  });
+                  setLastSaved(null);
+                  toast({
+                    title: "تم مسح النموذج",
+                    description: "تم مسح جميع البيانات المدخلة",
+                  });
+                }}
+                className="text-red-500 hover:text-red-700 text-sm"
+              >
+                مسح النموذج
+              </button>
+            ) : null}
+          </div>
 
           <Button 
             type="submit" 

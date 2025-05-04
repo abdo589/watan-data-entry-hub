@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Download, List, Search, Trash2 } from 'lucide-react';
+import { Download, List, Search, Trash2, RefreshCw } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useToast } from "@/hooks/use-toast";
 import { MemberData } from './RegistrationForm';
@@ -16,22 +16,52 @@ const AdminDashboard = () => {
   // جلب البيانات عند تحميل المكون
   useEffect(() => {
     loadMembersData();
+    
+    // إعداد مستمع للتحديثات من التخزين المحلي
+    const handleStorageChange = () => {
+      loadMembersData();
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    
+    // التنظيف عند إزالة المكون
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
 
   // تحميل البيانات من localStorage
   const loadMembersData = () => {
     const dataString = localStorage.getItem('membersData');
     if (dataString) {
-      const data = JSON.parse(dataString);
-      setMembersData(data);
+      try {
+        const data = JSON.parse(dataString);
+        setMembersData(data);
+      } catch (error) {
+        console.error("Error parsing members data:", error);
+        toast({
+          title: "خطأ في النظام",
+          description: "حدثت مشكلة في قراءة البيانات",
+          variant: "destructive"
+        });
+      }
     }
+  };
+
+  // تحديث البيانات يدويًا
+  const handleRefreshData = () => {
+    loadMembersData();
+    toast({
+      title: "تم تحديث البيانات",
+      description: "تم تحديث قائمة الأعضاء بنجاح",
+    });
   };
 
   // تصفية البيانات بناءً على مصطلح البحث
   const filteredData = membersData.filter(item => 
-    item.name.includes(searchTerm) || 
-    item.nationalId.includes(searchTerm) || 
-    item.phone.includes(searchTerm)
+    item.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    item.nationalId?.includes(searchTerm) || 
+    item.phone?.includes(searchTerm)
   );
 
   // تنزيل البيانات كملف Excel
@@ -51,11 +81,11 @@ const AdminDashboard = () => {
     const csvContent = [
       headers.join(','),
       ...membersData.map(member => [
-        `"${member.name}"`,
-        `"${member.nationalId}"`,
-        `"${member.phone}"`,
-        `"${member.gender}"`,
-        `"${member.position}"`,
+        `"${member.name || ''}"`,
+        `"${member.nationalId || ''}"`,
+        `"${member.phone || ''}"`,
+        `"${member.gender || ''}"`,
+        `"${member.position || ''}"`,
         `"${new Date(member.timestamp).toLocaleString('ar-EG')}"`
       ].join(','))
     ].join('\n');
@@ -115,7 +145,15 @@ const AdminDashboard = () => {
               عرض وتصدير بيانات الأعضاء المسجلين في النظام
             </CardDescription>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Button 
+              onClick={handleRefreshData} 
+              variant="outline" 
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className="h-4 w-4" />
+              تحديث
+            </Button>
             <Button onClick={handleDownloadExcel} className="flex items-center gap-2 bg-green-600 hover:bg-green-700">
               <Download className="h-4 w-4" />
               تصدير Excel
@@ -149,6 +187,7 @@ const AdminDashboard = () => {
                 <TableHead className="text-right">رقم التليفون</TableHead>
                 <TableHead className="text-right">النوع</TableHead>
                 <TableHead className="text-right">الصفة</TableHead>
+                <TableHead className="text-right">تاريخ التسجيل</TableHead>
                 <TableHead className="text-right">إجراءات</TableHead>
               </TableRow>
             </TableHeader>
@@ -161,6 +200,15 @@ const AdminDashboard = () => {
                     <TableCell>{member.phone}</TableCell>
                     <TableCell>{member.gender}</TableCell>
                     <TableCell>{member.position}</TableCell>
+                    <TableCell>
+                      {new Date(member.timestamp).toLocaleString('ar-EG', { 
+                        year: 'numeric',
+                        month: 'numeric',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </TableCell>
                     <TableCell>
                       <Button 
                         variant="ghost" 
@@ -175,8 +223,8 @@ const AdminDashboard = () => {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-10">
-                    لا توجد بيانات متطابقة مع البحث
+                  <TableCell colSpan={7} className="text-center py-10">
+                    {searchTerm ? 'لا توجد بيانات متطابقة مع البحث' : 'لا يوجد أعضاء مسجلين بعد'}
                   </TableCell>
                 </TableRow>
               )}
