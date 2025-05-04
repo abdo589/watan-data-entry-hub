@@ -17,6 +17,17 @@ const positions = [
   "أخرى"
 ];
 
+// نموذج البيانات الذي سيتم تخزينه
+export interface MemberData {
+  id: number;
+  name: string;
+  nationalId: string;
+  phone: string;
+  gender: string;
+  position: string;
+  timestamp: string;
+}
+
 const RegistrationForm = () => {
   const { toast } = useToast();
   const [formData, setFormData] = useState({
@@ -74,14 +85,41 @@ const RegistrationForm = () => {
 
     setLoading(true);
     
-    // In a real implementation, this would send data to a backend service
-    // For now, we'll simulate a successful submission
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      // تجهيز البيانات للحفظ
+      const finalPosition = formData.position === 'أخرى' ? formData.customPosition : formData.position;
+      
+      // جلب البيانات الحالية من localStorage
+      const existingDataString = localStorage.getItem('membersData');
+      const existingData: MemberData[] = existingDataString ? JSON.parse(existingDataString) : [];
+      
+      // إنشاء معرف جديد
+      const newId = existingData.length > 0 ? Math.max(...existingData.map(item => item.id)) + 1 : 1;
+      
+      // إنشاء كائن البيانات الجديد
+      const newMemberData: MemberData = {
+        id: newId,
+        name: formData.name,
+        nationalId: formData.nationalId,
+        phone: formData.phone,
+        gender: formData.gender,
+        position: finalPosition,
+        timestamp: new Date().toISOString()
+      };
+      
+      // إضافة البيانات الجديدة للمصفوفة
+      const updatedData = [...existingData, newMemberData];
+      
+      // حفظ البيانات في localStorage
+      localStorage.setItem('membersData', JSON.stringify(updatedData));
+      
+      // عرض رسالة نجاح
       toast({
         title: "تم التسجيل بنجاح!",
         description: "تم حفظ بيانات العضو في النظام",
       });
+      
+      // إعادة تعيين النموذج
       setFormData({
         name: '',
         nationalId: '',
@@ -90,7 +128,16 @@ const RegistrationForm = () => {
         position: '',
         customPosition: ''
       });
-    }, 1000);
+    } catch (error) {
+      console.error("خطأ في حفظ البيانات:", error);
+      toast({
+        title: "خطأ في النظام",
+        description: "لم نتمكن من حفظ البيانات، يرجى المحاولة مرة أخرى",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
