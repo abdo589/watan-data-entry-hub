@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,7 +16,7 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
 
   // في تطبيق حقيقي، يجب أن تكون كلمة المرور مخزنة بشكل آمن في الخادم
   // هذا مجرد مثال للتوضيح
-  const correctPassword = 'admin123';  
+  const correctPassword = 'watan2025';  
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
